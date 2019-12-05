@@ -13,7 +13,7 @@ if __name__ == '__main__':
     train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
 
     # Build model
-    model = models.NotebookModel.get_model(3, 16)
+    model = models.TransposeConvModel.get_model(4, 8)
     callbacks = get_callbacks(cwd, model.name)
     model.summary()
 

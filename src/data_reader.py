@@ -9,6 +9,7 @@ IMG_H = IMG_W = 256
 
 tf.nn.weighted_cross_entropy_with_logits()
 
+
 def prepare_target(x_, y_):
     y_ = tf.cast(y_, tf.int32)
     return x_, y_
@@ -37,8 +38,8 @@ def read_test_data(data_path, batch_size=BATCH_SIZE, img_h=IMG_H, img_w=IMG_W, t
                                                  interpolation='bilinear',
                                                  seed=get_seed())
     test_dataset = tf.data.Dataset.from_generator(lambda: test_gen,
-                                                   output_types=tf.float32,
-                                                   output_shapes=([None, img_h, img_w, 3]))
+                                                  output_types=tf.float32,
+                                                  output_shapes=([None, img_h, img_w, 3]))
     return test_dataset, test_gen
 
 

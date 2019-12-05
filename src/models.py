@@ -5,6 +5,58 @@ import os
 import numpy as np
 
 
+class TransposeConvModel(object):
+    """
+    Model using transpose convolution layers:
+    It is a first improvement over the model provided in the notebook:
+    - Number of filters improve with 2^n
+    - Up-sampling layers are substituted with transpose convolutions, in order to improve the un-learnability
+    of the up-sampling filters
+
+    The model as 1M of parameter (with depth = 4, start_f=8).
+    """
+    model_name = "TransposeConvolution"
+
+    @classmethod
+    def get_model(cls, depth, start_f, img_h=256, img_w=256):
+        model = tf.keras.Sequential(name=cls.model_name)
+
+        # Encoder
+        for i in range(depth):
+            input_shape = [img_h, img_w, 3] if i == 0 else [None]
+
+            model.add(tf.keras.layers.Conv2D(filters=start_f,
+                                             kernel_size=(3, 3),
+                                             strides=(1, 1),
+                                             padding="same",
+                                             input_shape=input_shape,
+                                             activation="relu"))
+            if i >= 1:
+                model.add(tf.keras.layers.MaxPool2D(pool_size=(2, 2)))
+
+            start_f = start_f * ((i + 1) ** 2)
+
+        # Decoder
+        for i in range(depth-1):
+            start_f = start_f // ((depth - i) ** 2)
+
+            model.add(tf.keras.layers.Conv2DTranspose(filters=start_f,
+                                                      kernel_size=(3, 3),
+                                                      strides=(2, 2),
+                                                      padding="same",
+                                                      activation="relu"))
+
+        # Prediction layer
+        model.add(tf.keras.layers.Conv2DTranspose(filters=1,
+                                                  kernel_size=(3,3),
+                                                  strides=(1, 1),
+                                                  padding='same',
+                                                  activation='sigmoid'))
+
+        compile_model(model)
+        return model
+
+
 class NotebookModel(object):
     """
     Lab notebook model adapted for this Kaggle competition
