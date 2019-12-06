@@ -10,13 +10,15 @@ if __name__ == '__main__':
     data_path = os.path.join(cwd, "data")
 
     # Read dataset
-    train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
+    #train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
 
     # Build model
-    model = models.TransposeConvModel.get_model(4, 8)
-    callbacks = get_callbacks(cwd, model.name)
+    model = models.TransposeSkipConn.get_model(start_f=32)
+    #callbacks = get_callbacks(cwd, model.name)
     model.summary()
 
+
+    """
     # Fit model
     model.fit(x=train_dataset,
               epochs=20,
@@ -31,4 +33,5 @@ if __name__ == '__main__':
     predictions = model.predict(x=test_dataset, steps=len(test_gen), verbose=1)
     results = create_submission_dict(image_ids, predictions)
     create_csv(results)
+    """
 

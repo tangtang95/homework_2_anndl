@@ -5,6 +5,70 @@ import os
 import numpy as np
 
 
+class TransposeSkipConn(object):
+    """
+    Model improving from TransponseConvModel in the sense that now skip connections are present,
+    in order to combine local and global information about the image.
+
+    This model is implemented with functional API, instead of Sequential model
+    """
+    model_name = "TransponseConvolutionSkipConnections"
+
+    @classmethod
+    def get_model(cls, start_f, img_h=256, img_w=256):
+        x = tf.keras.Input(shape=(img_w, img_h, 3))  # Input layer
+
+        # Encoder module
+        conv1 = tf.keras.layers.Conv2D(filters=start_f, kernel_size=(4, 4), strides=(2, 2),
+                                       padding="same", activation="relu")(x)
+        conv2 = tf.keras.layers.Conv2D(filters=start_f * 2, kernel_size=(3, 3), strides=(1, 1),
+                                       padding="same", activation="relu")(conv1)
+        maxpool1 = tf.keras.layers.MaxPool2D(pool_size=(2, 2))(conv2)
+        conv3 = tf.keras.layers.Conv2D(filters=start_f * 4, kernel_size=(3, 3), strides=(2, 2),
+                                       padding="same", activation="relu")(maxpool1)
+        maxpool2 = tf.keras.layers.MaxPool2D(pool_size=(2, 2))(conv3)
+        conv4 = tf.keras.layers.Conv2D(filters=start_f * 8, kernel_size=(3, 3), strides=(2, 2),
+                                       padding="same", activation="relu")(maxpool2)
+
+        # Decoder module
+        up_sampling1 = tf.keras.layers.Conv2DTranspose(filters=(start_f * 4), strides=(2, 2),
+                                                       padding="same", activation="relu",
+                                                       kernel_size=(3, 3))(conv4)
+        mix1 = tf.keras.layers.Add()([up_sampling1, maxpool2])
+
+        up_sampling2 = tf.keras.layers.Conv2DTranspose(filters=(start_f * 2), strides=(4, 4),
+                                                       padding="same", activation="relu",
+                                                       kernel_size=(3, 3))(mix1)
+        mix2 = tf.keras.layers.Add()([up_sampling2, maxpool1])
+
+        up_sampling3 = tf.keras.layers.Conv2DTranspose(filters=(start_f * 2), strides=(2, 2),
+                                                       padding="same", activation="relu", kernel_size=(3, 3))(mix2)
+
+        mix3 = tf.keras.layers.Add()([up_sampling3, conv2])
+
+        up_sampling4 = tf.keras.layers.Conv2DTranspose(filters=start_f, strides=(1, 1), padding="same",
+                                                       activation="relu", kernel_size=(4, 4))(mix3)
+
+        mix4 = tf.keras.layers.Add()([up_sampling4, conv1])
+
+        up_sampling5 = tf.keras.layers.Conv2DTranspose(filters=start_f, strides=(2, 2), padding="same",
+                                                       activation="relu", kernel_size=(3, 3))(mix4)
+
+        # Output layer
+
+        output_layer = tf.keras.layers.Conv2DTranspose(filters=1,
+                                                       kernel_size=(3, 3),
+                                                       strides=(1, 1),
+                                                       padding='same',
+                                                       activation='sigmoid')(up_sampling5)
+
+        model = tf.keras.Model(inputs=x, outputs=output_layer)
+
+        compile_model(model)
+
+        return model
+
+
 class TransposeConvModel(object):
     """
     Model using transpose convolution layers:
@@ -37,7 +101,7 @@ class TransposeConvModel(object):
             start_f = start_f * ((i + 1) ** 2)
 
         # Decoder
-        for i in range(depth-1):
+        for i in range(depth - 1):
             start_f = start_f // ((depth - i) ** 2)
 
             model.add(tf.keras.layers.Conv2DTranspose(filters=start_f,
@@ -48,7 +112,7 @@ class TransposeConvModel(object):
 
         # Prediction layer
         model.add(tf.keras.layers.Conv2DTranspose(filters=1,
-                                                  kernel_size=(3,3),
+                                                  kernel_size=(3, 3),
                                                   strides=(1, 1),
                                                   padding='same',
                                                   activation='sigmoid'))
@@ -161,7 +225,7 @@ def map_iou(y_true, y_pred):
     true_positives = tf.keras.backend.sum(true_positives)
 
     # to get images that don't have mask in both true and pred
-    true_negatives = (1-true1) * (1 - pred1)  # = 1 -true1 - pred1 + true1*pred1
+    true_negatives = (1 - true1) * (1 - pred1)  # = 1 -true1 - pred1 + true1*pred1
     true_negatives = tf.keras.backend.sum(true_negatives)
 
     return (true_positives + true_negatives) / cast_float(tf.keras.backend.shape(y_true)[0])

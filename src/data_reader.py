@@ -7,9 +7,6 @@ from src.utils import get_seed
 BATCH_SIZE = 16
 IMG_H = IMG_W = 256
 
-tf.nn.weighted_cross_entropy_with_logits()
-
-
 def prepare_target(x_, y_):
     y_ = tf.cast(y_, tf.int32)
     return x_, y_
