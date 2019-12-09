@@ -13,7 +13,7 @@ if __name__ == '__main__':
     #train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
 
     # Build model
-    model = models.TransposeSkipConn.get_model(start_f=32)
+    model = models.TransposeSkipConn.get_model(start_f=30)
     #callbacks = get_callbacks(cwd, model.name)
     model.summary()
 

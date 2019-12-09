@@ -5,6 +5,66 @@ import os
 import numpy as np
 
 
+class Unet(object):
+
+    @classmethod
+    def get_model(cls, img_w=256, img_h=256):
+        """
+        Taken from https://www.kaggle.com/weiji14/yet-another-keras-u-net-data-augmentation#Part-2---Build-model
+        """
+        n_ch_exps = [4, 5, 6, 7, 8, 9]  # the n-th deep channel's exponent i.e. 2**n 16,32,64,128,256
+        k_size = (3, 3)  # size of filter kernel
+        k_init = 'he_normal'  # kernel initializer
+
+        ch_axis = 3
+        input_shape = (img_w, img_h, 3)
+
+        inp = tf.keras.layers.Input(shape=input_shape)
+        encodeds = []
+
+        # encoder
+        enc = inp
+        print(n_ch_exps)
+        for l_idx, n_ch in enumerate(n_ch_exps):
+            enc = tf.keras.layers.Conv2D(filters=2 ** n_ch, kernel_size=k_size, activation='relu', padding='same',
+                                         kernel_initializer=k_init)(enc)
+            enc = tf.keras.layers.Dropout(0.1 * l_idx, )(enc)
+            enc = tf.keras.layers.Conv2D(filters=2 ** n_ch, kernel_size=k_size, activation='relu', padding='same',
+                                         kernel_initializer=k_init)(enc)
+            encodeds.append(enc)
+            # print(l_idx, enc)
+            if n_ch < n_ch_exps[-1]:  # do not run max pooling on the last encoding/downsampling step
+                enc = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(enc)
+
+        # decoder
+        dec = enc
+        print(n_ch_exps[::-1][1:])
+        decoder_n_chs = n_ch_exps[::-1][1:]
+        for l_idx, n_ch in enumerate(decoder_n_chs):
+            l_idx_rev = len(n_ch_exps) - l_idx - 2  #
+            dec = tf.keras.layers.Conv2DTranspose(filters=2 ** n_ch, kernel_size=k_size, strides=(2, 2),
+                                                  activation='relu', padding='same', kernel_initializer=k_init)(dec)
+            dec = tf.keras.layers.concatenate([dec, encodeds[l_idx_rev]], axis=ch_axis)
+            dec = tf.keras.layers.Conv2D(filters=2 ** n_ch, kernel_size=k_size, activation='relu', padding='same',
+                                         kernel_initializer=k_init)(dec)
+            dec = tf.keras.layers.Dropout(0.1 * l_idx)(dec)
+            dec = tf.keras.layers.Conv2D(filters=2 ** n_ch, kernel_size=k_size, activation='relu', padding='same',
+                                         kernel_initializer=k_init)(dec)
+
+        outp = tf.keras.layers.Conv2DTranspose(filters=1, kernel_size=k_size, activation='sigmoid', padding='same',
+                                               kernel_initializer='glorot_normal')(dec)
+
+        model = tf.keras.Model(inputs=[inp], outputs=[outp])
+
+        optimizer = 'adam'
+        loss = bce_dice_loss
+        metrics = [map_iou()]
+
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+        return model
+
+
 class TransposeSkipConn(object):
     """
     Model improving from TransponseConvModel in the sense that now skip connections are present,
@@ -16,7 +76,7 @@ class TransposeSkipConn(object):
 
     @classmethod
     def get_model(cls, start_f, img_h=256, img_w=256):
-        x = tf.keras.Input(shape=(img_w, img_h, 3))  # Input layer
+        x = tf.keras.Input(shape=(img_w, img_h, 1))  # Input layer
 
         # Encoder module
         conv1 = tf.keras.layers.Conv2D(filters=start_f, kernel_size=(4, 4), strides=(2, 2),
@@ -167,6 +227,18 @@ class NotebookModel(object):
                                          activation='sigmoid'))
         compile_model(model)
         return model
+
+
+def bce_dice_loss(y_true, y_pred):
+    return 0.5 * tf.keras.losses.binary_crossentropy(y_true, y_pred) - dice_coef(y_true, y_pred)
+
+
+def dice_coef(y_true, y_pred):
+    smooth = 1.
+    y_true_f = tf.keras.backend.flatten(y_true)
+    y_pred_f = tf.keras.backend.flatten(y_pred)
+    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
 
 
 def iou_single(y_true, y_pred):

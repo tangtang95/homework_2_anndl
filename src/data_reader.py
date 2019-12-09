@@ -7,6 +7,7 @@ from src.utils import get_seed
 BATCH_SIZE = 16
 IMG_H = IMG_W = 256
 
+
 def prepare_target(x_, y_):
     y_ = tf.cast(y_, tf.int32)
     return x_, y_
@@ -59,25 +60,25 @@ def read_train_valid_data(data_path, batch_size=BATCH_SIZE, img_h=IMG_H, img_w=I
 
     # Define image generator for train images, masks and valid images, masks
     if do_augmentation:
-        train_data_img_gen = ImageDataGenerator(rotation_range=10,
-                                                width_shift_range=1. / 10,
-                                                height_shift_range=1. / 10,
-                                                zoom_range=0.3,
+        train_data_img_gen = ImageDataGenerator(rotation_range=45.,
+                                                width_shift_range=0.1,
+                                                height_shift_range=0.1,
+                                                shear_range=0.2,
+                                                zoom_range=0.2,
                                                 horizontal_flip=True,
                                                 vertical_flip=True,
-                                                fill_mode='constant',
-                                                cval=0,
-                                                rescale=rescale_factor,
+                                                fill_mode='reflect',
+                                                rescale=1. / 255,
                                                 validation_split=validation_split)
 
-        train_data_mask_gen = ImageDataGenerator(rotation_range=10,
-                                                 width_shift_range=1. / 10,
-                                                 height_shift_range=1. / 10,
-                                                 zoom_range=0.3,
+        train_data_mask_gen = ImageDataGenerator(rotation_range=45.,
+                                                 width_shift_range=0.1,
+                                                 height_shift_range=0.1,
+                                                 shear_range=0.2,
+                                                 zoom_range=0.2,
                                                  horizontal_flip=True,
                                                  vertical_flip=True,
-                                                 fill_mode='constant',
-                                                 cval=0,
+                                                 fill_mode='reflect',
                                                  rescale=1. / 255,
                                                  validation_split=validation_split)
     else:
