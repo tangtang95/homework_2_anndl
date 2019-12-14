@@ -11,9 +11,11 @@ if __name__ == '__main__':
 
     # Read dataset
     #train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
+    temp = models.Unet.get_model()
+    temp.summary()
 
     # Build model
-    model = models.TransposeSkipConn.get_model(start_f=30)
+    model = models.TransferVGG.get_model(keep_last_max_pooling=False)
     #callbacks = get_callbacks(cwd, model.name)
     model.summary()
 

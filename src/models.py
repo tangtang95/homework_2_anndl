@@ -3,6 +3,170 @@ from datetime import datetime
 import tensorflow as tf
 import os
 import numpy as np
+from typing import List
+
+
+class TransferVGG2(object):
+
+    @classmethod
+    def get_model(cls, img_w=256, img_h=256, decoding_start_f=512):
+        vgg: tf.keras.Model = tf.keras.applications.VGG19(include_top=False, weights="imagenet",
+                                                          input_shape=(img_h, img_w, 3))
+        vgg_layers: List[tf.keras.layers.Layer] = vgg.layers
+
+        k_init = "he_normal"
+
+        # Decoder
+        layer_idx = [-2, -10, 8, 4, 1]
+        decoder_depth = 4
+        prev_layer = vgg_layers[layer_idx[0]].output
+
+        for i in range(0, decoder_depth):
+            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // (2**i), strides=(2, 2),
+                                                          padding="same", activation="relu",
+                                                          kernel_size=(3, 3),
+                                                          kernel_initializer=k_init)(prev_layer)
+            merge = tf.keras.layers.concatenate([up_sampling, vgg_layers[layer_idx[i+1]].output])
+            merge = tf.keras.layers.Conv2D(filters=decoding_start_f // (2**i), strides=(1, 1),
+                                           padding="same", activation="relu", kernel_size=(3, 3),
+                                           kernel_initializer=k_init)(merge)
+            prev_layer = merge
+
+        # Output
+        output = tf.keras.layers.Conv2DTranspose(filters=1,
+                                                 kernel_size=(3, 3), activation='sigmoid',
+                                                 padding='same',
+                                                 kernel_initializer='glorot_normal')(prev_layer)
+
+        model = tf.keras.Model(inputs=vgg_layers[0].input, outputs=output)
+
+        optimizer = 'adam'
+        loss = bce_dice_loss
+        metrics = [map_iou]
+
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+        return model
+
+
+class TransferVGG(object):
+
+    @classmethod
+    def get_model(cls, img_w=256, img_h=256, decoding_start_f=512, keep_last_max_pooling=True):
+        vgg: tf.keras.Model = tf.keras.applications.VGG19(include_top=False, weights="imagenet",
+                                                          input_shape=(img_h, img_w, 3))
+        vgg_layers: List[tf.keras.layers.Layer] = vgg.layers
+
+        k_init = "he_normal"
+
+        # Decoder
+        decoder_depth = 4
+        if keep_last_max_pooling:
+            layer_idx = [-1, -10, 8, 4, 1]
+            prev_layer = vgg_layers[layer_idx[0]].output
+            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f, strides=(2, 2),
+                                                          padding="same", activation="relu",
+                                                          kernel_size=(3, 3),
+                                                          kernel_initializer=k_init)(prev_layer)
+            prev_layer = up_sampling
+        else:
+            layer_idx = [-2, -10, 8, 4, 1]
+            prev_layer = vgg_layers[layer_idx[0]].output
+
+        for i in range(0, decoder_depth):
+            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // (2**i), strides=(2, 2),
+                                                          padding="same", activation="relu",
+                                                          kernel_size=(3, 3),
+                                                          kernel_initializer=k_init)(prev_layer)
+            merge = tf.keras.layers.concatenate([up_sampling, vgg_layers[layer_idx[i+1]].output])
+            merge = tf.keras.layers.Conv2D(filters=decoding_start_f // (2**i), strides=(1, 1),
+                                           padding="same", activation="relu", kernel_size=(3, 3),
+                                           kernel_initializer=k_init)(merge)
+            prev_layer = merge
+
+        # Output
+        output = tf.keras.layers.Conv2DTranspose(filters=1,
+                                                 kernel_size=(3, 3), activation='sigmoid',
+                                                 padding='same',
+                                                 kernel_initializer='glorot_normal')(prev_layer)
+
+        model = tf.keras.Model(inputs=vgg_layers[0].input, outputs=output)
+
+        optimizer = 'adam'
+        loss = bce_dice_loss
+        metrics = [map_iou]
+
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+        return model
+
+
+class TransferResNet50V2(object):
+    @classmethod
+    def get_model(cls, img_w=256, img_h=256, decoding_start_f=256):
+        k_init = 'he_normal'  # kernel initializer
+
+        # Encoder
+        inception_resnet: tf.keras.Model = tf.keras.applications.ResNet50V2(include_top=False,
+                                                                            weights='imagenet',
+                                                                            input_shape=(img_h, img_w, 3))
+        encoder_layers: List[tf.keras.layers.Layer] = inception_resnet.layers.copy()
+
+        for layer in encoder_layers:
+            layer.trainable = False
+
+        # Decoder
+        up_sampling_1 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f, strides=(2, 2),
+                                                        padding="same", activation="relu",
+                                                        kernel_size=(3, 3),
+                                                        kernel_initializer=k_init)(encoder_layers[-1].output)
+        merge_1 = tf.keras.layers.concatenate([encoder_layers[-46].output, up_sampling_1])
+        merge_1 = tf.keras.layers.Conv2D(kernel_size=(3, 3), kernel_initializer=k_init, activation="relu",
+                                         padding="same", filters=decoding_start_f)(merge_1)
+
+        up_sampling_2 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // 2, strides=(2, 2),
+                                                        padding="same", activation="relu",
+                                                        kernel_size=(3, 3), kernel_initializer=k_init)(merge_1)
+        merge_2 = tf.keras.layers.concatenate([encoder_layers[-112].output, up_sampling_2])
+        merge_2 = tf.keras.layers.Conv2D(kernel_size=(3, 3), kernel_initializer=k_init, activation="relu",
+                                         padding="same", filters=decoding_start_f // 2)(merge_2)
+
+        up_sampling_3 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // 4, strides=(2, 2),
+                                                        padding="same", activation="relu",
+                                                        kernel_size=(3, 3), kernel_initializer=k_init)(merge_2)
+
+        merge_3 = tf.keras.layers.concatenate([encoder_layers[-158].output, up_sampling_3])
+        merge_3 = tf.keras.layers.Conv2D(kernel_size=(3, 3), kernel_initializer=k_init, activation="relu",
+                                         padding="same", filters=decoding_start_f // 4)(merge_3)
+
+        up_sampling_4 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // 4, strides=(2, 2),
+                                                        padding="same", activation="relu",
+                                                        kernel_initializer=k_init, kernel_size=(3, 3))(merge_3)
+        merge_4 = tf.keras.layers.concatenate([encoder_layers[2].output, up_sampling_4])
+        merge_4 = tf.keras.layers.Conv2D(filters=decoding_start_f // 4, strides=(1, 1),
+                                         padding="same", activation="relu", kernel_initializer=k_init,
+                                         kernel_size=(3, 3))(merge_4)
+
+        up_sampling_5 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // 8, strides=(2, 2),
+                                                        padding="same", activation="relu",
+                                                        kernel_size=(3, 3), kernel_initializer=k_init)(merge_4)
+        up_sampling_5 = tf.keras.layers.Conv2D(filters=decoding_start_f // 16, strides=(1, 1),
+                                               padding="same", activation="relu",
+                                               kernel_size=(3, 3), kernel_initializer=k_init)(up_sampling_5)
+
+        # Output layer
+        output = tf.keras.layers.Conv2DTranspose(filters=1, kernel_size=(3, 3), activation='sigmoid', padding='same',
+                                                 kernel_initializer='glorot_normal')(up_sampling_5)
+
+        model = tf.keras.Model(inputs=encoder_layers[0].input, outputs=output)
+
+        optimizer = 'adam'
+        loss = bce_dice_loss
+        metrics = [map_iou]
+
+        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+        return model
 
 
 class Unet(object):
@@ -58,7 +222,7 @@ class Unet(object):
 
         optimizer = 'adam'
         loss = bce_dice_loss
-        metrics = [map_iou()]
+        metrics = [map_iou]
 
         model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
