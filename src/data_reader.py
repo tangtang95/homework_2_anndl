@@ -43,10 +43,16 @@ def read_test_data(data_path, batch_size=BATCH_SIZE, img_h=IMG_H, img_w=IMG_W, t
 
 def read_train_valid_data(data_path, batch_size=BATCH_SIZE, img_h=IMG_H, img_w=IMG_W, validation_split=0.15,
                           to_rescale=True,
-                          do_augmentation=False):
+                          do_augmentation=False,
+                          train_data_img_gen=None,
+                          train_data_mask_gen=None):
     """
     Read training and validation image data resized to (img_h, img_w) with a certain batch size
 
+    :param train_data_mask_gen: custom data generator for mask augmentation, instead of the default one.
+    It will be considered only if do_augmentation is True
+    :param train_data_img_gen: custom data generator for RGB augmentation, instead of the default one
+    It will be considered only if do_augmentation is True
     :param data_path: path to the folder containing Segmentation Dataset
     :param batch_size: batch size of images taken from directory
     :param img_h: target resized image height
@@ -60,27 +66,28 @@ def read_train_valid_data(data_path, batch_size=BATCH_SIZE, img_h=IMG_H, img_w=I
 
     # Define image generator for train images, masks and valid images, masks
     if do_augmentation:
-        train_data_img_gen = ImageDataGenerator(rotation_range=45.,
-                                                width_shift_range=0.1,
-                                                height_shift_range=0.1,
-                                                shear_range=0.2,
-                                                zoom_range=0.2,
-                                                horizontal_flip=True,
-                                                vertical_flip=True,
-                                                fill_mode='reflect',
-                                                rescale=1. / 255,
-                                                validation_split=validation_split)
-
-        train_data_mask_gen = ImageDataGenerator(rotation_range=45.,
-                                                 width_shift_range=0.1,
-                                                 height_shift_range=0.1,
-                                                 shear_range=0.2,
-                                                 zoom_range=0.2,
-                                                 horizontal_flip=True,
-                                                 vertical_flip=True,
-                                                 fill_mode='reflect',
-                                                 rescale=1. / 255,
-                                                 validation_split=validation_split)
+        if train_data_img_gen is None:
+            train_data_img_gen = ImageDataGenerator(rotation_range=45.,
+                                                    width_shift_range=0.1,
+                                                    height_shift_range=0.1,
+                                                    shear_range=0.2,
+                                                    zoom_range=0.2,
+                                                    horizontal_flip=True,
+                                                    vertical_flip=True,
+                                                    fill_mode='reflect',
+                                                    rescale=1. / 255,
+                                                    validation_split=validation_split)
+        if train_data_mask_gen is None:
+            train_data_mask_gen = ImageDataGenerator(rotation_range=45.,
+                                                     width_shift_range=0.1,
+                                                     height_shift_range=0.1,
+                                                     shear_range=0.2,
+                                                     zoom_range=0.2,
+                                                     horizontal_flip=True,
+                                                     vertical_flip=True,
+                                                     fill_mode='reflect',
+                                                     rescale=1. / 255,
+                                                     validation_split=validation_split)
     else:
         train_data_img_gen = ImageDataGenerator(rescale=rescale_factor,
                                                 validation_split=validation_split)

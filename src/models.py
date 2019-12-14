@@ -6,49 +6,6 @@ import numpy as np
 from typing import List
 
 
-class TransferVGG2(object):
-
-    @classmethod
-    def get_model(cls, img_w=256, img_h=256, decoding_start_f=512):
-        vgg: tf.keras.Model = tf.keras.applications.VGG19(include_top=False, weights="imagenet",
-                                                          input_shape=(img_h, img_w, 3))
-        vgg_layers: List[tf.keras.layers.Layer] = vgg.layers
-
-        k_init = "he_normal"
-
-        # Decoder
-        layer_idx = [-2, -10, 8, 4, 1]
-        decoder_depth = 4
-        prev_layer = vgg_layers[layer_idx[0]].output
-
-        for i in range(0, decoder_depth):
-            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // (2**i), strides=(2, 2),
-                                                          padding="same", activation="relu",
-                                                          kernel_size=(3, 3),
-                                                          kernel_initializer=k_init)(prev_layer)
-            merge = tf.keras.layers.concatenate([up_sampling, vgg_layers[layer_idx[i+1]].output])
-            merge = tf.keras.layers.Conv2D(filters=decoding_start_f // (2**i), strides=(1, 1),
-                                           padding="same", activation="relu", kernel_size=(3, 3),
-                                           kernel_initializer=k_init)(merge)
-            prev_layer = merge
-
-        # Output
-        output = tf.keras.layers.Conv2DTranspose(filters=1,
-                                                 kernel_size=(3, 3), activation='sigmoid',
-                                                 padding='same',
-                                                 kernel_initializer='glorot_normal')(prev_layer)
-
-        model = tf.keras.Model(inputs=vgg_layers[0].input, outputs=output)
-
-        optimizer = 'adam'
-        loss = bce_dice_loss
-        metrics = [map_iou]
-
-        model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-
-        return model
-
-
 class TransferVGG(object):
 
     @classmethod
@@ -74,12 +31,12 @@ class TransferVGG(object):
             prev_layer = vgg_layers[layer_idx[0]].output
 
         for i in range(0, decoder_depth):
-            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // (2**i), strides=(2, 2),
+            up_sampling = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f // (2 ** i), strides=(2, 2),
                                                           padding="same", activation="relu",
                                                           kernel_size=(3, 3),
                                                           kernel_initializer=k_init)(prev_layer)
-            merge = tf.keras.layers.concatenate([up_sampling, vgg_layers[layer_idx[i+1]].output])
-            merge = tf.keras.layers.Conv2D(filters=decoding_start_f // (2**i), strides=(1, 1),
+            merge = tf.keras.layers.concatenate([up_sampling, vgg_layers[layer_idx[i + 1]].output])
+            merge = tf.keras.layers.Conv2D(filters=decoding_start_f // (2 ** i), strides=(1, 1),
                                            padding="same", activation="relu", kernel_size=(3, 3),
                                            kernel_initializer=k_init)(merge)
             prev_layer = merge

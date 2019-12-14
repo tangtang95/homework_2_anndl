@@ -9,21 +9,17 @@ if __name__ == '__main__':
     cwd = os.getcwd()
     data_path = os.path.join(cwd, "data")
 
-    # Read dataset
-    #train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path)
-    temp = models.Unet.get_model()
-    temp.summary()
-
     # Build model
-    model = models.TransferVGG.get_model(keep_last_max_pooling=False)
-    #callbacks = get_callbacks(cwd, model.name)
+    model = models.TransferVGG.get_model(keep_last_max_pooling=True)
+    callbacks = get_callbacks(cwd, model.name)
     model.summary()
 
+    # Read dataset
+    train_dataset, valid_dataset, train_img_gen, valid_img_gen = read_train_valid_data(data_path, do_augmentation=True)
 
-    """
     # Fit model
     model.fit(x=train_dataset,
-              epochs=20,
+              epochs=70,
               steps_per_epoch=len(train_img_gen),
               validation_data=valid_dataset,
               validation_steps=len(valid_img_gen),
@@ -35,5 +31,3 @@ if __name__ == '__main__':
     predictions = model.predict(x=test_dataset, steps=len(test_gen), verbose=1)
     results = create_submission_dict(image_ids, predictions)
     create_csv(results)
-    """
-
