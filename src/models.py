@@ -9,10 +9,14 @@ from typing import List
 class TransferVGG(object):
 
     @classmethod
-    def get_model(cls, img_w=256, img_h=256, decoding_start_f=512, keep_last_max_pooling=True):
+    def get_model(cls, img_w=256, img_h=256, decoding_start_f=512, keep_last_max_pooling=True, fine_tuning=True):
         vgg: tf.keras.Model = tf.keras.applications.VGG19(include_top=False, weights="imagenet",
                                                           input_shape=(img_h, img_w, 3))
         vgg_layers: List[tf.keras.layers.Layer] = vgg.layers
+
+        if not fine_tuning:
+            for layer in vgg_layers:
+                layer.trainable = False
 
         k_init = "he_normal"
 
@@ -60,7 +64,9 @@ class TransferVGG(object):
 
 class TransferResNet50V2(object):
     @classmethod
-    def get_model(cls, img_w=256, img_h=256, decoding_start_f=256):
+    def get_model(cls, img_w=256, img_h=256, fine_tuning=True):
+        decoding_start_f = 256
+
         k_init = 'he_normal'  # kernel initializer
 
         # Encoder
@@ -69,8 +75,9 @@ class TransferResNet50V2(object):
                                                                             input_shape=(img_h, img_w, 3))
         encoder_layers: List[tf.keras.layers.Layer] = inception_resnet.layers.copy()
 
-        for layer in encoder_layers:
-            layer.trainable = False
+        if not fine_tuning:
+            for layer in encoder_layers:
+                layer.trainable = False
 
         # Decoder
         up_sampling_1 = tf.keras.layers.Conv2DTranspose(filters=decoding_start_f, strides=(2, 2),
